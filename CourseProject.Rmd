@@ -110,7 +110,7 @@ for (i in 1:k) {
 }
 ```
 
-By averaging the model accuracy, we get an estimated in-sample accuracy of 
+For a Random Forest classifier, the OOB (Out-of-bag) error estimate is an attempt to estimate the out-of-sample error.  Let's look at the average for all models/classes:
 
 ```{r}
 
@@ -129,10 +129,21 @@ for (i in 1:k) {
 }
 ```
 
-To estimate out-of-sample error, average the confusion matrix for all of the runs.
+To estimate out-of-sample error, average the confusion matrix accuracy for all of the runs.
 ```{r}
-
+sum <- 0
+for (i in 1:k) {
+  sum <- sum + matrices[[i]]$overall[1]
+}
+avg <- sum / k
 ```
+
+We achieve
+
+`r avg`
+
+With our cross-validated models.
+
 
 ## Test Set Prediction
 
@@ -140,10 +151,15 @@ Finally, lets run the test data through the first model in the matrix
 ```{r}
 testing.model <- testing.complete[,!(names(testing.complete) %in% notinteresting.columns)]
 testPredictions <- predict(models[[1]], newdata=testing.model)
-testPredictions
+tf <- data.frame(problem_id=testing.model$problem_id)
+tf$prediction <- testPredictions
 ```
 
-The predictions for the test cases are `r testPredictions`.  Write these out to files so that they can be submitted:
+The predictions for the test cases are :
+
+`r tf`
+
+Write these out to files so that they can be submitted:
 
 ```{r}
 pml_write_files = function(x) {
