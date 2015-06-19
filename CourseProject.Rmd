@@ -110,11 +110,18 @@ for (i in 1:k) {
 }
 ```
 
-For a Random Forest classifier, the OOB (Out-of-bag) error estimate is an attempt to estimate the out-of-sample error.  Let's look at the average for all models/classes:
+Let's average the in-sample accuracy for all of the models.  
 
 ```{r}
+sum <- 0
+for (i in 1:k) {
+  sum <- sum + (sum(models[[i]]$finalModel$confusion[,6])/5)
+}
+avg <- sum / k
 
 ```
+
+We achieve `r 1-avg` in-sample accuracy with our cross-validated models.  We expect out-of-sample accuracy to be lower.
 
 
 ## Cross Validation
