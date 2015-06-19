@@ -35,6 +35,19 @@ Class A corresponds to the specified execution of the exercise, while the other 
 
 Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3dLOvIVYb
 
+Note: This analysis depends on the following R libraries:
+```{r}
+library(caret)
+library(AppliedPredictiveModeling)
+library(randomForest)
+library(scatterplot3d)
+library(rgl)
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+set.seed(125)
+```
+
 ## Retrieve The Data
 ```{r cache=TRUE}
 download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
@@ -46,5 +59,105 @@ testing <- read.csv("testing.csv")
 ```
 
 ## Exploratory Data Analysis
+
+First lets take a look at how complete the data is.  
 ```{r}
+incompleteTrainingColumns <- length(which(colSums(is.na(training)) != 0))
+incompleteTestColumns <- length(which(colSums(is.na(testing)) != 0))
 ```
+We can see that we have `r incompleteTrainingColumns` incomplete columns in our training set and `r incompleteTestColumns` in our test set.  Lets remove the union of those columns from the training and testing data - we won't bother with variables that can't inform the model or the prediction for all of the training and test cases.
+
+```{r}
+natest <- which(colSums(is.na(testing)) != 0)
+natrain <- which(colSums(is.na(training)) != 0)
+training.complete <- training[,-union(natest, natrain)]
+testing.complete <- testing[,-union(natest, natrain)]
+```
+
+Now let's do some principle component analysis on the data to get a feel for what the model will be sensitive to.  First we want to create a "predictor set" out of the numerical sensor data, so let's get rid of some of the non-numeric data (user name, timestamps, etc.):
+
+```{r}
+notinteresting.columns <- c('X','user_name', 'raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'new_window', 'num_window')
+class.column <- c('classe')
+unused.columns <- union(notinteresting.columns, class.column)
+```
+
+Now for the PCA analysis on the relevant data:
+```{r}
+training.predictors <- training.complete[,!(names(training.complete) %in% unused.columns)]
+preProc <- preProcess(training.predictors, method=c("BoxCox", "center", "scale", "pca"))
+pc <- predict(preProc, training.predictors)
+plot(pc$PC1, pc$PC2, col=training.complete$classe)
+```
+
+Basically, there are five clusters in the plot of the two first principle components, however those clusters don't map to the labels at all, and graphs of the other principle components (not shown, for brevity) don't show any insights either.  So the exploratory analysis doesn't yield anything interpretable. 
+
+## Model Creation
+
+First lets create a k-fold partition of our training data with k = 10...
+```{r}
+k <- 10
+training.model <- training.complete[,!(names(training.complete) %in% notinteresting.columns)]
+training.folds <- createFolds(training.model$classe, k = k, list = FALSE)
+```
+
+...then create a vector of Random Forest models on the folds.
+
+```{r cache=TRUE}
+models <- vector(mode="list", length=k)
+for (i in 1:k) {
+  models[[i]] <-train(classe~., data=training.model[training.folds != i,], method="rf")
+}
+```
+
+By averaging the model accuracy, we get an estimated in-sample accuracy of 
+
+```{r}
+
+```
+
+
+## Cross Validation
+
+To cross validate, we predict on the leftover fold for each model created above, storing the confusion matrix for each run.
+
+```{r}
+matrices <- vector(mode="list", length=k)
+for (i in 1:k) {
+  predCV <- predict(models[[i]], newdata=training.model[training.folds == i,])
+  matrices[[i]] <- confusionMatrix(predCv, cv$classe)
+}
+```
+
+To estimate out-of-sample error, average the confusion matrix for all of the runs.
+```{r}
+
+```
+
+## Test Set Prediction
+
+Finally, lets run the test data through the first model in the matrix
+```{r}
+testing.model <- testing.complete[,!(names(testing.complete) %in% notinteresting.columns)]
+testPredictions <- predict(models[[1]], newdata=testing.model)
+testPredictions
+```
+
+The predictions for the test cases are `r testPredictions`.  Write these out to files so that they can be submitted:
+
+```{r}
+pml_write_files = function(x) {
+  n = length(x)
+  for (i in 1:n) {
+    filename = paste0("problem_id_", i, ".txt")
+    write.table(x[i], file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(testPredictions)
+```
+
+
+```{r echo=FALSE}
+stopCluster(cl)
+```
+
