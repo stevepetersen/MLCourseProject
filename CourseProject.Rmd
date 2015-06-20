@@ -88,7 +88,7 @@ Now for the PCA analysis on the relevant data:
 training.predictors <- training.complete[,!(names(training.complete) %in% unused.columns)]
 preProc <- preProcess(training.predictors, method=c("BoxCox", "center", "scale", "pca"))
 pc <- predict(preProc, training.predictors)
-plot(pc$PC1, pc$PC2, col=training.complete$classe)
+plot(pc$PC1, pc$PC2, col=training.complete$classe, main="PCA Analysis", xlab="PC 1", ylab="PC 2")
 ```
 
 Basically, there are five clusters in the plot of the two first principle components, however those clusters don't map to the labels at all, and graphs of the other principle components (not shown, for brevity) don't show any insights either.  So the exploratory analysis doesn't yield anything interpretable. 
@@ -102,7 +102,7 @@ training.model <- training.complete[,!(names(training.complete) %in% notinterest
 training.folds <- createFolds(training.model$classe, k = k, list = FALSE)
 ```
 
-...then create a vector of Random Forest models on the folds.
+...then create a vector of Random Forest models on the folds.  Note that we don't keep our preprocessing from the principle component analysis, as decision trees are not sensitive to feature scale/normalization differences.
 
 ```{r cache=TRUE}
 models <- vector(mode="list", length=k)
@@ -111,18 +111,30 @@ for (i in 1:k) {
 }
 ```
 
-Let's average the in-sample accuracy for all of the models.  
+Let's plot the values and average of the in-sample accuracy for all of the models.  
 
 ```{r}
-sum <- 0
+accuracies <- data.frame(classe=training.complete$classe, value=0, model=0)
+summ <- 0
 for (i in 1:k) {
-  sum <- sum + (sum(models[[i]]$finalModel$confusion[,6])/5)
+  for (j in 1:5) {
+    accuracies[i*j,1] <- levels(training.complete$classe)[j]
+    accuracies[i*j,2] <- 1-models[[i]]$finalModel$confusion[j,6]
+    accuracies[i*j,3] <- i 
+  }
+  summ <- summ + sum(models[[i]]$finalModel$confusion[,6])/5
 }
-avg <- sum / k
-
+avg <- summ / k
+palette(topo.colors(10))
+plot(accuracies$value, accuracies$classe, ylab="Class", xlab="Accuracy", main="Class Accuracies by Model", col=colors()[accuracies$model], xlim=c(0.9, 1.0))
+abline(v=(1-avg), col="red")
+legend( x="topleft", 
+        legend=c("Overall Average","Model 1","Model 2","Model 3","Model 4","Model 5","Model 6","Model 7","Model 8","Model 9","Model 10"),
+        col=c("red",colors()[1], colors()[2], colors()[3], colors()[4], colors()[5], colors()[6], colors()[7], colors()[8], colors()[9], colors()[10]), lwd=1, lty=c(1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA),
+        pch=c(NA,1,1,1,1,1,1,1,1,1,1) )
 ```
 
-We achieve `r signif((1-avg)*100, 3)`% in-sample accuracy with our models.  We expect out-of-sample accuracy to be lower.
+We achieve `r signif((1-avg)*100, 3)`% overall (across all class values) in-sample accuracy with our models.  We expect out-of-sample accuracy to be lower.
 
 
 ## Cross Validation
