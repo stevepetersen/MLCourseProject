@@ -6,3 +6,6 @@ AppliedPredictiveModeling
 randomForest
 scatterplot3d
 rgl
+foreach
+iterators
+doParallel

@@ -35,7 +35,8 @@ Class A corresponds to the specified execution of the exercise, while the other 
 
 Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3dLOvIVYb
 
-Note: This analysis depends on the following R libraries:
+Note: This analysis depends on the following R libraries. Note we also enable parallelism to allow the models to train in a reasonable amount of time.  In this case, training the k-fold models takes overnight.
+
 ```{r}
 library(caret)
 library(AppliedPredictiveModeling)
@@ -121,7 +122,7 @@ avg <- sum / k
 
 ```
 
-We achieve `r 1-avg` in-sample accuracy with our cross-validated models.  We expect out-of-sample accuracy to be lower.
+We achieve `r signif((1-avg)*100, 3)`% in-sample accuracy with our models.  We expect out-of-sample accuracy to be lower.
 
 
 ## Cross Validation
@@ -131,8 +132,8 @@ To cross validate, we predict on the leftover fold for each model created above,
 ```{r}
 matrices <- vector(mode="list", length=k)
 for (i in 1:k) {
-  predCV <- predict(models[[i]], newdata=training.model[training.folds == i,])
-  matrices[[i]] <- confusionMatrix(predCv, cv$classe)
+  predCv <- predict(models[[i]], newdata=training.model[training.folds == i,])
+  matrices[[i]] <- confusionMatrix(predCv, training.model[training.folds == i,]$classe)
 }
 ```
 
@@ -145,11 +146,7 @@ for (i in 1:k) {
 avg <- sum / k
 ```
 
-We achieve
-
-`r avg`
-
-With our cross-validated models.
+We achieve `r signif(avg*100, 3)`% accuracy with our cross-validated models.
 
 
 ## Test Set Prediction
@@ -164,7 +161,9 @@ tf$prediction <- testPredictions
 
 The predictions for the test cases are :
 
-`r tf`
+```{r}
+tf
+```
 
 Write these out to files so that they can be submitted:
 
